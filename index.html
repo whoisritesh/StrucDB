@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StrucDB — Unified PDB &amp; AlphaFold Structural Workstation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Top Utility Header -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="#" class="brand" aria-label="StrucDB Home">
+        <span class="brand-mark">S</span>
+        <span class="brand-name">StrucDB</span>
+        <span class="brand-tag">PDB + AFDB</span>
+      </a>
+      <span class="divider-v"></span>
+      <form id="search-form" class="search-box" autocomplete="off">
+        <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="text"
+          id="query-input"
+          placeholder="Search UniProt ID, PDB ID, or gene (e.g., P04637, 1HSG, Q6K243)..."
+          value="P04637"
+          spellcheck="false"
+        />
+        <button type="submit" class="btn-primary">Load Entry</button>
+      </form>
+
+      <!-- Local File Upload Trigger -->
+      <input type="file" id="local-file-input" accept=".pdb,.ent,.cif,.mmcif" hidden />
+      <button type="button" id="upload-trigger-btn" class="btn-upload" title="Load local .pdb or .cif file (AlphaFold-Multimer, GROMACS, etc.)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <span>Open Local PDB / CIF</span>
+      </button>
+    </div>
+
+    <div class="topbar-right">
+      <div class="presets">
+        <span class="preset-label">Presets:</span>
+        <button type="button" class="preset-chip active" data-query="P04637">TP53 (P04637)</button>
+        <button type="button" class="preset-chip" data-query="1HSG">HIV-1 Protease (1HSG)</button>
+        <button type="button" class="preset-chip" data-query="Q6K243">Rice APIP6 (Q6K243)</button>
+        <button type="button" class="preset-chip" data-query="P00533">EGFR (P00533)</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Three-Column Scientific Workstation -->
+  <main class="workspace">
+
+    <!-- Left Rail: Record Summary & Experimental PDB Table -->
+    <aside class="sidebar-left">
+      <section class="panel-section">
+        <div class="section-header">
+          <h2>Protein Summary</h2>
+          <span id="record-status" class="status-badge">Ready</span>
+        </div>
+        <h1 id="protein-title" class="protein-title">Cellular tumor antigen p53</h1>
+        <p id="protein-organism" class="protein-sub">Homo sapiens (Human) · TaxID 9606</p>
+
+        <dl class="meta-grid">
+          <div class="meta-item">
+            <dt id="meta-label-1">UniProtKB</dt>
+            <dd id="meta-uniprot" class="mono">P04637</dd>
+          </div>
+          <div class="meta-item">
+            <dt id="meta-label-2">Gene / Chains</dt>
+            <dd id="meta-gene" class="mono">TP53</dd>
+          </div>
+          <div class="meta-item">
+            <dt>Length</dt>
+            <dd id="meta-length" class="mono">393 aa</dd>
+          </div>
+          <div class="meta-item">
+            <dt id="meta-label-4">AFDB Model</dt>
+            <dd id="meta-afdb" class="mono">AF-P04637-F1</dd>
+          </div>
+        </dl>
+
+        <p id="protein-function" class="protein-desc">
+          Loading functional annotation from UniProtKB...
+        </p>
+      </section>
+
+      <!-- Custom Local File Banner -->
+      <section class="panel-section local-card" id="local-file-card" hidden>
+        <div class="section-header">
+          <h2>Local Coordinate File</h2>
+          <button type="button" id="clear-local-btn" class="link-btn">Clear</button>
+        </div>
+        <div class="local-file-meta">
+          <div id="local-filename" class="mono bold">complex_ranked_0.pdb</div>
+          <div id="local-file-details" class="muted">Format: PDB · Chains: A, B</div>
+        </div>
+        <div class="local-mode-row">
+          <span class="muted">Treat B-factor as:</span>
+          <select id="local-bfactor-role" class="select-input compact">
+            <option value="plddt" selected>AF2 / AF-Multimer pLDDT</option>
+            <option value="bfactor">Crystallographic B-factor / RMSF</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="panel-section flex-grow">
+        <div class="section-header">
+          <h2>Experimental PDB Entries</h2>
+          <span id="pdb-count" class="count-pill">0</span>
+        </div>
+        <p class="section-note">Select an experimental structure to align or inspect alongside AlphaFold.</p>
+
+        <div class="table-wrap">
+          <table class="data-table" id="pdb-table">
+            <thead>
+              <tr>
+                <th>PDB</th>
+                <th>Method</th>
+                <th>Res.</th>
+                <th>Span</th>
+              </tr>
+            </thead>
+            <tbody id="pdb-tbody">
+              <tr>
+                <td colspan="4" class="empty-cell">Querying RCSB / PDBe...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </aside>
+
+    <!-- Center Viewport: 3D Molecular Canvas + Sequence Track -->
+    <section class="viewport-column">
+      <!-- Viewport Toolbar -->
+      <div class="viewer-toolbar">
+        <div class="toolbar-group">
+          <span class="toolbar-label">Layer:</span>
+          <div class="segmented-control" id="layer-mode">
+            <button type="button" class="seg-btn active" data-mode="both">Overlay</button>
+            <button type="button" class="seg-btn" data-mode="split">Split View</button>
+            <button type="button" class="seg-btn" data-mode="pdb">PDB Only</button>
+            <button type="button" class="seg-btn" data-mode="af">AF / Local</button>
+          </div>
+        </div>
+
+        <div class="toolbar-group">
+          <span class="toolbar-label">Style:</span>
+          <select id="rep-select" class="select-input">
+            <option value="cartoon" selected>Cartoon Ribbon</option>
+            <option value="stick">Licorice / Sticks</option>
+            <option value="line">Wireframe</option>
+            <option value="sphere">Spacefill (CPK)</option>
+          </select>
+
+          <select id="color-select" class="select-input">
+            <option value="source" selected>Color by Source</option>
+            <option value="chain">Chain ID (Multimer)</option>
+            <option value="plddt">pLDDT Confidence</option>
+            <option value="spectrum">N → C Spectrum</option>
+            <option value="ss">Secondary Structure</option>
+          </select>
+        </div>
+
+        <div class="toolbar-group">
+          <label class="checkbox-label" title="Hide disordered AlphaFold residues with pLDDT below 50">
+            <input type="checkbox" id="hide-disordered-toggle" />
+            <span>Hide pLDDT &lt; 50</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="surface-toggle" />
+            <span>Surface</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="spin-toggle" />
+            <span>Spin</span>
+          </label>
+          <button type="button" id="reset-view-btn" class="btn-secondary">Reset</button>
+          <button type="button" id="snapshot-btn" class="btn-secondary">PNG</button>
+          <button type="button" id="export-pml-btn" class="btn-secondary" title="Download publication-ready PyMOL script (.pml)">PyMOL (.pml)</button>
+        </div>
+      </div>
+
+      <!-- 3Dmol Canvas Container with Drag & Drop Zone -->
+      <div class="canvas-stage" id="drop-zone">
+        <div class="viewer-grid" id="viewer-grid">
+          <div class="viewer-pane" id="pane-left">
+            <div id="mol-viewer"></div>
+          </div>
+          <div class="viewer-pane" id="pane-right" hidden>
+            <div id="mol-viewer-right"></div>
+            <div class="split-pane-tag" id="split-right-tag">AlphaFold / Local</div>
+          </div>
+        </div>
+
+        <!-- Drag & Drop Overlay -->
+        <div class="drop-overlay" id="drop-overlay" hidden>
+          <div class="drop-box">
+            <strong>Drop .pdb or .cif file to load</strong>
+            <span>Supports AlphaFold-Multimer complexes, GROMACS frames, and custom crystal structures</span>
+          </div>
+        </div>
+
+        <!-- Clean Legend Overlay -->
+        <div class="canvas-legend" id="canvas-legend">
+          <div class="legend-row">
+            <span class="swatch swatch-pdb"></span>
+            <span id="legend-pdb-label">PDB: —</span>
+          </div>
+          <div class="legend-row">
+            <span class="swatch swatch-af"></span>
+            <span id="legend-af-label">AlphaFold: —</span>
+          </div>
+        </div>
+
+        <!-- Hover Telemetry Strip -->
+        <div class="hover-readout" id="hover-readout">
+          Hover over any residue in 3D or click a sequence letter below to focus &amp; inspect sidechains
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="loader-banner" id="loader-banner" hidden>
+          <span class="spinner"></span>
+          <span id="loader-text">Fetching structural coordinates...</span>
+        </div>
+      </div>
+
+      <!-- Interactive Amino Acid Sequence Strip -->
+      <div class="sequence-panel">
+        <div class="sequence-header">
+          <span class="seq-title">Primary Sequence &amp; Per-Residue Confidence</span>
+          <div class="seq-controls">
+            <span id="seq-selection" class="mono muted">Click a residue to focus &amp; show sidechain</span>
+            <button type="button" id="clear-focus-btn" class="link-btn" hidden>Clear focus</button>
+          </div>
+        </div>
+        <div id="sequence-ribbon" class="sequence-ribbon" role="list"></div>
+      </div>
+    </section>
+
+    <!-- Right Rail: Confidence Metrics, Interface Contacts, PAE & Downloads -->
+    <aside class="sidebar-right">
+      <section class="panel-section">
+        <div class="section-header">
+          <h2>Model Confidence (pLDDT)</h2>
+          <span id="mean-plddt" class="mono bold">—</span>
+        </div>
+
+        <div class="plddt-bars">
+          <div class="bar-row">
+            <span class="bar-dot" style="background:#0053d6"></span>
+            <span class="bar-name">Very high (&gt; 90)</span>
+            <div class="bar-track"><div id="bar-vhigh" class="bar-fill" style="background:#0053d6;width:0%"></div></div>
+            <span id="pct-vhigh" class="bar-val mono">0%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-dot" style="background:#65cbf3"></span>
+            <span class="bar-name">Confident (70–90)</span>
+            <div class="bar-track"><div id="bar-conf" class="bar-fill" style="background:#65cbf3;width:0%"></div></div>
+            <span id="pct-conf" class="bar-val mono">0%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-dot" style="background:#ffdb13"></span>
+            <span class="bar-name">Low (50–70)</span>
+            <div class="bar-track"><div id="bar-low" class="bar-fill" style="background:#e5b800;width:0%"></div></div>
+            <span id="pct-low" class="bar-val mono">0%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-dot" style="background:#ff7d45"></span>
+            <span class="bar-name">Very low (&lt; 50)</span>
+            <div class="bar-track"><div id="bar-vlow" class="bar-fill" style="background:#ff7d45;width:0%"></div></div>
+            <span id="pct-vlow" class="bar-val mono">0%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Inter-Chain Interface Contact Detector (< 4.5 Å) -->
+      <section class="panel-section" id="interface-panel">
+        <div class="section-header">
+          <h2>Interface Contacts</h2>
+          <div class="header-actions">
+            <select id="contact-cutoff-select" class="select-input mini-select" title="Heavy-atom distance cutoff">
+              <option value="3.5">&lt; 3.5 Å</option>
+              <option value="4.5" selected>&lt; 4.5 Å</option>
+              <option value="6.0">&lt; 6.0 Å</option>
+              <option value="8.0">&lt; 8.0 Å</option>
+            </select>
+            <span id="contact-count" class="count-pill">0</span>
+            <button type="button" id="export-contacts-btn" class="btn-mini" disabled title="Export inter-chain contacts as CSV">CSV ↓</button>
+          </div>
+        </div>
+        <div class="interface-controls">
+          <label class="checkbox-label">
+            <input type="checkbox" id="highlight-interface-toggle" />
+            <span>Highlight sticks &amp; H-bonds/contacts in 3D</span>
+          </label>
+        </div>
+        <div class="table-wrap contact-table-wrap">
+          <table class="data-table" id="contact-table">
+            <thead>
+              <tr>
+                <th>Chain 1</th>
+                <th>Chain 2</th>
+                <th>Min Dist</th>
+              </tr>
+            </thead>
+            <tbody id="contact-tbody">
+              <tr>
+                <td colspan="3" class="empty-cell">Load a multi-chain complex to detect interface contacts.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-header">
+          <h2>Predicted Aligned Error (PAE)</h2>
+          <span class="mono muted">Ångströms</span>
+        </div>
+        <p class="section-note">Expected position error at residue X when aligned on residue Y.</p>
+        <div class="pae-box">
+          <canvas id="pae-canvas" width="240" height="240"></canvas>
+          <div class="pae-scale">
+            <span>0 Å (High)</span>
+            <div class="pae-gradient"></div>
+            <span>30 Å (Low)</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-header">
+          <h2>Coordinate Files &amp; Cross-Links</h2>
+        </div>
+        <div class="download-list" id="download-links">
+          <a id="dl-pdb" class="doc-link disabled" href="#" target="_blank" rel="noopener">
+            <span>RCSB PDB File (.pdb)</span>
+            <span class="mono">↗</span>
+          </a>
+          <a id="dl-af-pdb" class="doc-link disabled" href="#" target="_blank" rel="noopener">
+            <span>AlphaFold Model (.pdb)</span>
+            <span class="mono">↗</span>
+          </a>
+          <a id="dl-af-cif" class="doc-link disabled" href="#" target="_blank" rel="noopener">
+            <span>AlphaFold mmCIF (.cif)</span>
+            <span class="mono">↗</span>
+          </a>
+          <a id="dl-uniprot" class="doc-link disabled" href="#" target="_blank" rel="noopener">
+            <span>UniProtKB Entry</span>
+            <span class="mono">↗</span>
+          </a>
+        </div>
+      </section>
+    </aside>
+
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
